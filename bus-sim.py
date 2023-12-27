@@ -1,4 +1,3 @@
-
 import subprocess
 import sys
 subprocess.check_call([sys.executable, "-m", "pip", "install", "pymongo"])
@@ -22,12 +21,13 @@ DRY_RUN = os.getenv('DRY_RUN', 'true').lower() == 'true'
 LOC_SPAWN_INTERVAL = int(os.getenv('LOC_SPAWN_INTERVAL', '5')) # in seconds
 LOC_TTL = int(os.getenv('LOC_TTL', '10')) # in seconds
 
-lines = ['c2', 'c4']
+lines = ['C2', 'C4']
 
 #[@] Saves a certain location to mongodb
 def dump_loc(line, num, lat, lon, col):
     ts = datetime.datetime.utcnow()
-    mydict = { 'line': line, 'num': num, 'lat': lat, 'lon': lon, 'ts': ts }
+    mydict = { 'line': line, 'num': num, 'pos': {'type': 'Point', 'coordinates': [float(lat),float(lon)]}, 'ts': ts }
+    print(mydict)
     col.insert_one(mydict)
 
 #[@] Generates a new random bus
@@ -39,6 +39,7 @@ def spawn_bus(counter,col):
     loc_burst = []
     with open('locs.csv', newline='') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=',')
+        next(spamreader, None) # skip header
         for row in spamreader:
             if row[LINES] == 'both' or row[LINES] == rand_line:
                 loc_burst.append({'lat': row[LAT],'lon': row[LON]})
@@ -54,15 +55,11 @@ def db_setup():
     db_client = pymongo.MongoClient(os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
     db = db_client["demo"]
     print('[Database] cleaning previous collections...')
-    db.drop_collection('paradas')
-    db.drop_collection('coches')
-
-    col_paradas = db["paradas"]
-    col_paradas.insert_many(json.load(open('paradas.json')))
-    
+    # db.drop_collection('coches')    
 
     col_coches = db["coches"]
-    col_coches.create_index('ts', expireAfterSeconds = LOC_TTL)
+    # col_coches.create_index('ts', expireAfterSeconds = LOC_TTL)
+    col_coches.create_index([('pos', pymongo.GEOSPHERE)])
     print('[Database] setup complete, ready')
 
     return col_coches

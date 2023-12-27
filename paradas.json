@@ -2,22 +2,28 @@
     {
         "num": 27,
         "nam": "Resolana (Barqueta)",
-        "lat": 37.40369414691994,
-        "lon": -5.993991940038661,
+        "pos": {
+            "type": "Point", 
+            "coordinates": [37.4036941, -5.9939919]
+        },
         "lin": ["C2", "C4"]
     },
     {
         "num": 790,
         "nam": "Torneo (Baños)",
-        "lat": 37.396346468832355, 
-        "lon": -6.002656340906337,
+        "pos": {
+            "type": "Point",
+            "coordinates": [37.3963464, -6.0026563]
+        },
         "lin": ["C4"]
     },
     {
         "num": 935,
         "nam": "Juan Bautista Muñoz (Esc. de Ingenieria)",
-        "lat": 37.411451171134786,
-        "lon": -5.999161843323865,
+        "pos": {
+            "type": "Point",
+            "coordinates": [37.4114511, -5.9991618]
+        },
         "lin": ["C2"]
     }
 ]
