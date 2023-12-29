@@ -2,113 +2,30 @@ import subprocess
 import sys
 subprocess.check_call([sys.executable, "-m", "pip", "install", "geopy"])
 subprocess.check_call([sys.executable, "-m", "pip", "install", "pymongo"])
+subprocess.check_call([sys.executable, "-m", "pip", "install", "firebase-admin"])
 
 import os
-import csv
 import pymongo
 import json
+import time
 
-#[@] CSV file indexes
-LAT = int(os.getenv('LAT', '0'))
-LON = int(os.getenv('LON', '1'))
-LINES = int(os.getenv('LINES', '3'))
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
 
-lines = ['C2', 'C4']
+SPEED = int(os.getenv('SPEED', '10'))
+UPDATE = int(os.getenv('WAIT', '5'))
 
-loc_burst = []
-with open('locs.csv', newline='') as csvfile:
-    spamreader = csv.reader(csvfile, delimiter=',')
-    next(spamreader, None) # skip header
-    for row in spamreader:
-        loc_burst.append({'lat': row[LAT],'lon': row[LON]})
 
-def queryDb(db, locs, line):
-    # return db.aggregate([
-    #     {'$geoNear': {'near': {'type': 'Point', 'coordinates': locs }, 'distanceField': 'distance', 'query': {'lin': line}}}, 
-    #     {'$limit': 2},
-    #     {'$sort': {'num': -1}},
-    #     {'$project': {'_id': 0, 'pos': 0, 'lin': 0}}
-    # ])
+#[@] Returns nearby buses to a certain coords.
+def nearby_query(db, stop_loc, lines):
     return db.aggregate([
-    {
-        '$geoNear': {
-            'near': {
-                'type': 'Point', 
-                'coordinates': [
-                    37.4036941, -5.9939919
-                ]
-            }, 
-            'distanceField': 'dis'
-        }
-    }, {
-        '$sort': {
-            'ts': -1
-        }
-    }, {
-        '$project': {
-            'line': 1, 
-            'num': 1, 
-            'dis': 1, 
-            'ts': {
-                '$dateToString': {
-                    'format': '%H:%M:%S.%L', 
-                    'date': '$ts'
-                }
-            }
-        }
-    }, {
-        '$group': {
-            '_id': {
-                'line': '$line', 
-                'num': '$num'
-            }, 
-            'locs': {
-                '$push': {
-                    'dis': '$dis', 
-                    'ts': '$ts'
-                }
-            }
-        }
-    }, {
-        '$project': {
-            'locs': {
-                '$slice': [
-                    '$locs', 2
-                ]
-            }, 
-            'last': {
-                '$arrayElemAt': [
-                    '$locs', 0
-                ]
-            }
-        }
-    }, {
-        '$project': {
-            'locs': {
-                '$reduce': {
-                    'input': '$locs', 
-                    'initialValue': 0, 
-                    'in': {
-                        '$subtract': [
-                            '$$this.dis', '$$value'
-                        ]
-                    }
-                }
-            }, 
-            'last': 1, 
-            'id': {
-                '$concat': [
-                    '$_id.line', '-', {
-                        '$substr': [
-                            '$_id.num', 0, 1
-                        ]
-                    }
-                ]
-            }, 
-            '_id': 0
-        }
-    }
-])
+        {'$geoNear': {'near': {'type': 'Point', 'coordinates': stop_loc}, 'distanceField': 'dis', 'query': {'line': {'$in': lines}}}}, 
+        {'$sort': {'ts': -1}}, 
+        {'$group': {'_id': {'line': '$line', 'num': '$num'}, 'locs': {'$push': {'dis': '$dis', 'ts': '$ts'}}}}, 
+        {'$project': {'locs': {'$slice': ['$locs', 2]}, 'last': {'$arrayElemAt': ['$locs', 0]}}}, 
+        {'$project': {'dir': {'$reduce': {'input': '$locs', 'initialValue': 0, 'in': {'$subtract': ['$$this.dis', '$$value']}}}, 'last': 1, 'vid': {'$concat': ['$_id.line', '-', {'$substr': ['$_id.num', 0, 1]}]}, '_id': 0}}
+    ])
 
 #[@] Database configurations.
 def db_setup():
@@ -121,46 +38,53 @@ def db_setup():
     col_paradas.create_index([('pos', pymongo.GEOSPHERE)])
     col_paradas.insert_many(json.load(open('paradas.json')))
 
+    col_coches = db["coches"]
+
     print('[Database] setup complete, ready')
-    return col_paradas
+    return col_paradas, col_coches
 
-# def nextStop(line, current_pos, db):
-#     coordinates = [float(pos) for pos in current_pos.values()]
-#     print(line, coordinates)
+#[@] Realtime Database configurations.
+def rtdb_setup():
+    cred = credentials.Certificate('keys/bus-stop-system-firebase-adminsdk.json')
+    firebase_admin.initialize_app(cred, { #
+        'databaseURL': os.getenv('FIREBASE_URI', 'https://databaseName.firebaseio.com')
+    })
+    st = db.reference('stops')
+    st.set({})
+    return st
 
-#     cursor = queryDb(db, coordinates, line)
-#     results = list(cursor)
-#     nearest = None
-#     if any([stop["top"] for stop in results]):
-#         print("Top stop detected -> choosing it")
-#         filtered = filter(lambda x: x["top"] == True, results)
-#         nearest = next(filtered)
-#         print(nearest)
-#     else: 
-#         nearest = next(cursor)
-#         print(nearest)
+#[@] Returns nearby buses for a stop
+def nearby_calc(stop, db):
+    print("[Algorithm] calculating nearby buses for stop:", stop["num"], "(lines={})".format(stop["lin"]))
+    result = list(nearby_query(db, stop["pos"]["coordinates"], stop["lin"]))
+    print("[Algorithm] found", len(result), "buses nearby.")
+    return result
     
-def calcNearby(stop):
-    print("[Algorithm] calculating nearby buses for stop:", stop["num"])
-    
-
+def dump_stop_calcs(num, data, rtdb):
+    stop_nearby = rtdb.child(str(num))
+    for bus_info in data:
+        output = stop_nearby.child(bus_info["vid"])
+        if bus_info["dir"] >= 0: # update time remaining
+            body = json.loads(json.dumps(bus_info, default=str))
+            body["est"] = round(body["last"]["dis"] / ((1000/60) * SPEED)) # meters/minutes
+            del body["vid"]
+            output.set(body)
+        else: # clear entry
+            output.set({})
 
 #[@] Main void, scheduler process.
 def main():
-    # while (True):
-    stops = db_setup()
-    stops_list = stops.find({})
+    rtdb = rtdb_setup()
+    stops, locs = db_setup()
+    stops_list = list(stops.find({}))
 
-    # for each stop get last timestamp position of each bus
-    for stop in stops_list: 
-        calcNearby(stop)
-
-    
-    # nextStop(lines[0], loc_burst[15], stops)
-        # Calculate gap interval
-        # wait_t = 0
-        # print('[Scheduler] sleeping until next spawn ~', wait_t, 'secs')
-        # time.sleep(wait_t)
+    while (True):
+        # for each stop get last timestamp position of each bus
+        for stop in stops_list: 
+            nearby_buses = nearby_calc(stop, locs)
+            dump_stop_calcs(stop["num"], nearby_buses, rtdb)
+        print('[Scheduler] sleeping until next update ~', UPDATE, 'secs')
+        time.sleep(UPDATE)
 
 if __name__ == "__main__":
     main()

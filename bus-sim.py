@@ -27,7 +27,6 @@ lines = ['C2', 'C4']
 def dump_loc(line, num, lat, lon, col):
     ts = datetime.datetime.utcnow()
     mydict = { 'line': line, 'num': num, 'pos': {'type': 'Point', 'coordinates': [float(lat),float(lon)]}, 'ts': ts }
-    print(mydict)
     col.insert_one(mydict)
 
 #[@] Generates a new random bus
@@ -58,7 +57,7 @@ def db_setup():
     # db.drop_collection('coches')    
 
     col_coches = db["coches"]
-    # col_coches.create_index('ts', expireAfterSeconds = LOC_TTL)
+    col_coches.create_index('ts', expireAfterSeconds = LOC_TTL)
     col_coches.create_index([('pos', pymongo.GEOSPHERE)])
     print('[Database] setup complete, ready')
 
@@ -67,9 +66,9 @@ def db_setup():
 #[@] Main void, scheduler process.
 def main():
     col = db_setup()
+    spawn_counter = 1
 
     if DRY_RUN:
-        spawn_counter = 1
         spawn_bus(spawn_counter,col)
     else:
         while (True):
@@ -79,7 +78,7 @@ def main():
             time.sleep(wait_t)
 
             # Invoke child thread
-            thread = threading.Thread(target=spawn_bus, args=(spawn_counter,))
+            thread = threading.Thread(target=spawn_bus, args=(spawn_counter,col,))
             thread.start()
             spawn_counter = spawn_counter + 1;
 

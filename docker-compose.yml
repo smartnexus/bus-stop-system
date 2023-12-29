@@ -9,6 +9,21 @@ services:
       ports:
          - 27017:27017
    
+   exporter:
+      container_name: loc_exporter
+      image: python:3.7
+      environment:
+         - MONGO_URI=mongodb://mongo:27017/
+         - FIREBASE_URI=https://bus-stop-system-default-rtdb.europe-west1.firebasedatabase.app/
+         - SPEED=10
+         - UPDATE=5
+      volumes:
+         - ./loc-exporter.py:/loc-exporter.py
+         - ./keys:/keys
+         - ./paradas.json:/paradas.json
+      command: ["python3", "-u", "loc-exporter.py"]
+
+
    simulator:
       container_name: bus_simulator
       image: python:3.7
@@ -16,11 +31,10 @@ services:
          - MONGO_URI=mongodb://mongo:27017/
          - LOC_SPAWN_INTERVAL=5
          - LOC_TTL=10
-         - DRY_RUN=true
+         - DRY_RUN=false
       volumes:
         - ./bus-sim.py:/bus-sim.py
-        - ./paradas.json:/paradas.json
         - ./locs.csv:/locs.csv
-      command: ["python3", "bus-sim.py"]
+      command: ["python3", "-u", "bus-sim.py"]
 
   
