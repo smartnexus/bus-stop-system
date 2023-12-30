@@ -24,7 +24,7 @@ def nearby_query(db, stop_loc, lines):
         {'$sort': {'ts': -1}}, 
         {'$group': {'_id': {'line': '$line', 'num': '$num'}, 'locs': {'$push': {'dis': '$dis', 'ts': '$ts'}}}}, 
         {'$project': {'locs': {'$slice': ['$locs', 2]}, 'last': {'$arrayElemAt': ['$locs', 0]}}}, 
-        {'$project': {'dir': {'$reduce': {'input': '$locs', 'initialValue': 0, 'in': {'$subtract': ['$$this.dis', '$$value']}}}, 'last': 1, 'vid': {'$concat': ['$_id.line', '-', {'$substr': ['$_id.num', 0, 1]}]}, '_id': 0}}
+        {'$project': {'dir': {'$reduce': {'input': '$locs', 'initialValue': 0, 'in': {'$subtract': ['$$this.dis', '$$value']}}}, 'last': 1, 'vid': {'$concat': ['$_id.line', '-', {'$substr': ['$_id.num', 0, 10]}]}, '_id': 0}}
     ])
 
 #[@] Database configurations.
