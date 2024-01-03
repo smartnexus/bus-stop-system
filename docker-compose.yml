@@ -18,10 +18,10 @@ services:
          - SPEED=10
          - UPDATE=5
       volumes:
-         - ./loc-exporter.py:/loc-exporter.py
+         - ./backend/loc-exporter.py:/loc-exporter.py
          - ./keys:/keys
-         - ./paradas.json:/paradas.json
-      command: ["python3", "-u", "loc-exporter.py"]
+         - ./misc/paradas.json:/paradas.json
+      command: ["python3", "-u", "backend/loc-exporter.py"]
 
 
    simulator:
@@ -33,8 +33,8 @@ services:
          - LOC_TTL=10
          - DRY_RUN=false
       volumes:
-        - ./bus-sim.py:/bus-sim.py
-        - ./locs.csv:/locs.csv
-      command: ["python3", "-u", "bus-sim.py"]
+        - ./backend/bus-sim.py:/bus-sim.py
+        - ./misc/locs.csv:/locs.csv
+      command: ["python3", "-u", "backend/bus-sim.py"]
 
   
