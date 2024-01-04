@@ -28,6 +28,8 @@
   display: flex;
   flex-direction: column;
   gap: 30px;
+  overflow-y: auto;
+  max-height: 75%;
 }
 
 .Bus-box {
