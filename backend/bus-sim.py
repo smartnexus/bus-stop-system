@@ -9,7 +9,6 @@ import threading
 import csv
 import pymongo
 import datetime
-import json
 
 #[@] CSV file indexes
 LAT = int(os.getenv('LAT', '0'))

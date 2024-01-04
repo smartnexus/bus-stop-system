@@ -21,7 +21,7 @@ services:
          - ./backend/loc-exporter.py:/loc-exporter.py
          - ./keys:/keys
          - ./misc/paradas.json:/paradas.json
-      command: ["python3", "-u", "backend/loc-exporter.py"]
+      command: ["python3", "-u", "loc-exporter.py"]
 
 
    simulator:
@@ -30,11 +30,11 @@ services:
       environment:
          - MONGO_URI=mongodb://mongo:27017/
          - LOC_SPAWN_INTERVAL=5
-         - LOC_TTL=10
+         - LOC_TTL=30
          - DRY_RUN=false
       volumes:
         - ./backend/bus-sim.py:/bus-sim.py
         - ./misc/locs.csv:/locs.csv
-      command: ["python3", "-u", "backend/bus-sim.py"]
+      command: ["python3", "-u", "bus-sim.py"]
 
   
