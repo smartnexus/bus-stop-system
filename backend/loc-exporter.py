@@ -45,7 +45,7 @@ def db_setup():
 
 #[@] Realtime Database configurations.
 def rtdb_setup():
-    cred = credentials.Certificate('keys/bus-stop-system-firebase-adminsdk.json')
+    cred = credentials.Certificate('keys/firebase-adminsdk.json')
     firebase_admin.initialize_app(cred, { #
         'databaseURL': os.getenv('FIREBASE_URI', 'https://databaseName.firebaseio.com')
     })
