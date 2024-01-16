@@ -14,7 +14,7 @@ services:
       image: python:3.7
       environment:
          - MONGO_URI=mongodb://mongo:27017/
-         - FIREBASE_URI=https://bus-stop-system-default-rtdb.europe-west1.firebasedatabase.app/
+         - FIREBASE_URI=${{ secrets.FIREBASE_URI }}
          - SPEED=10
          - UPDATE=5
       volumes:
